@@ -1,47 +1,61 @@
 extern crate reqwest;
 extern crate select;
-//extern crate futures;
-//extern crate hyper;
-//extern crate tokio_core;
-
 use select::document::Document;
 use select::predicate::Class;
-use std::fs::File;
-use std::io::{self, Write};
-//use futures::{Future, Stream};
-//use hyper::Client;
-//use tokio_core::reactor::Core;
+use std::fs::{File, create_dir_all};
+use std::io::Write;
+
+struct Song {
+    artist: String,
+    name: String,
+    url: String
+}
+
+//creep: "https://songmeanings.com/songs/view/583/"
 
 fn main() {
-    let url = "https://songmeanings.com/songs/view/583/";
+    let pt = make_song("plastic_trees".to_string(), 573);
+    pt.scrape_comments();
+}
 
-    for page in 1.. {
-        let comments = song_page(url, page);
-        if comments.is_empty() {
-            break
-        } else {
-            //comments.extend(new_comments);
-            println!("page {}", page);
-            write(format!("out/out{}.txt", page), comments);
-        }
+fn make_song(name: String, url_num: u16) -> Song {
+    Song { artist: "radiohead".to_string(), name, 
+           url: format!("https://songmeanings.com/songs/view/{}/", url_num)
     }
 }
 
-fn song_page(url: &str, page: u8) -> Vec<String> {
-    let client = reqwest::Client::new();
-    let resp = client
-        .post(url)
-        .form(&[("page", page)])
-        .send()
-        .unwrap();
-    assert!(resp.status().is_success());
+impl Song {
+    fn scrape_comments(&self) {
+        let path = format!("./out/{}/{}/", &self.artist, &self.name); 
+        create_dir_all(&path).unwrap();
 
-    Document::from_read(resp)
-        .unwrap()
-        .find(Class("text"))
-        .map(|x| x.text().trim().to_string())
-        .filter(|x| *x != "")
-        .collect()
+        for page in 1.. {
+            let comments = self.song_page(page);
+            if comments.is_empty() {
+                break
+            } else {
+                println!("{}: page {}", &self.name, page);
+                write(format!("{}/out{}.txt", path, page), comments);
+            }
+        }
+    }
+
+    fn song_page(&self, page: u8) -> Vec<String> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(&self.url)
+            .form(&[("page", page)])
+            .send()
+            .unwrap();
+        assert!(resp.status().is_success());
+
+        Document::from_read(resp)
+            .unwrap()
+            .find(Class("text"))
+            .map(|x| x.text().trim().to_string())
+            .filter(|x| *x != "")
+            .collect()
+    }
 }
 
 fn write(path: String, comments: Vec<String>) {

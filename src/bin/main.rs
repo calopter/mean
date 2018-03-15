@@ -39,6 +39,7 @@ impl Artist {
     fn scrape_songs(&self) {
         &self.songs.par_iter()
                    .for_each(|s| s.scrape_comments());
+        cleanup(&format!("out/{}", &self.name), "1", &self.name);
     }
 
     fn scrape_urls(&mut self) {
@@ -76,16 +77,8 @@ impl Song {
                 write(format!("{}/out{}.txt", path, page), comments);
             }
         }
-        self.cleanup(path);
+        cleanup(&path, "0", &self.name);
     }
-
-    fn cleanup(&self, path: String) { //combine .txt files in dir and delete
-        Command::new("./process.hs") 
-                .args(&[&path, "0"])
-                .spawn()
-                .expect("failed to execute cleanup");
-        println!("{} scrape completed", &self.name);
-    } 
 
     fn song_page(&self, page: u8) -> String {
         let client = reqwest::Client::new();
@@ -110,6 +103,15 @@ impl Song {
         comments
     }
 }
+
+fn cleanup(path: &str, flag: &str, name: &str) { 
+    //combine .txt files in dir, non "1" flag deletes
+    Command::new("./process.hs") 
+            .args(&[path, flag])
+            .spawn()
+            .expect("failed to execute cleanup");
+    println!("{} scrape completed", name);
+} 
 
 fn pad(s: &str) -> String {
     match s.trim() {

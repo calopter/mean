@@ -1,34 +1,67 @@
+#![feature(iterator_step_by)]
+
 extern crate reqwest;
 extern crate select;
+extern crate rayon;
 use select::document::Document;
-use select::predicate::Class;
+use select::predicate::{Class, Name, Predicate};
 use std::fs::{File, create_dir_all};
 use std::io::Write;
 use std::process::Command;
+use rayon::prelude::*;
 
+#[derive(Debug)]
 struct Song {
-    artist: String,
+    artist_name: String,
     name: String,
     url: String
 }
 
-fn main() {
-    let pt = make_song("plastic_trees".to_string(), 573);
-    pt.scrape_comments();
-    pt.cleanup();
-//    let creep = make_song("creep".to_string(), 583);
-//    creep.scrape_comments();
+#[derive(Debug)]
+struct Artist {
+    name: String,
+    url: String,
+    songs: Vec<Song>
 }
 
-fn make_song(name: String, url_num: u16) -> Song {
-    Song { artist: "radiohead".to_string(), name, 
-           url: format!("https://songmeanings.com/songs/view/{}/", url_num),
+fn main() {
+    let mut radiohead = make_artist("radiohead".to_string(), 200);
+    radiohead.scrape_urls();
+    radiohead.scrape_songs();
+}
+
+fn make_artist(name: String, url_num: u16) -> Artist {
+    Artist { name, url: format!("https://songmeanings.com/artist/view/songs/{}/", url_num), songs: Vec::new() }
+}
+
+impl Artist {
+    fn scrape_songs(&self) {
+        &self.songs.par_iter()
+                   .for_each(|s| s.scrape_comments());
+    }
+
+    fn scrape_urls(&mut self) {
+        let resp = reqwest::get(&self.url).unwrap();
+        assert!(resp.status().is_success());
+        let document = Document::from_read(resp).unwrap();
+        let links = document.find(Name("td")
+                            .descendant(Name("a")))
+                            .step_by(2);
+
+        for link in links {
+            let song = Song { artist_name: self.name.to_string(),
+                           name: link.text(),
+                           url: format!("https:{}", link.attr("href").unwrap())
+            };
+//            println!("{:?}", &song);
+            self.songs.push(song);
+        }
     }
 }
 
 impl Song {
     fn scrape_comments(&self) {
-        let path = format!("out/{}/{}/", &self.artist, &self.name); 
+        let path = format!("out/{}/{}/", &self.artist_name, &self.name); 
         create_dir_all(&path).unwrap();
 
         for page in 1.. {
@@ -40,6 +73,7 @@ impl Song {
                 write(format!("{}/out{}.txt", path, page), comments);
             }
         }
+        self.cleanup();
     }
 
     fn cleanup(&self) {
@@ -47,6 +81,7 @@ impl Song {
                 .args(&[&self.name])
                 .spawn()
                 .expect("failed to execute cleanup");
+        println!("{} scrape completed", &self.name);
     } 
 
     fn song_page(&self, page: u8) -> String {

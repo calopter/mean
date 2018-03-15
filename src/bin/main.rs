@@ -6,6 +6,7 @@ extern crate rayon;
 use select::document::Document;
 use select::predicate::{Class, Name, Predicate};
 use std::fs::{File, create_dir_all};
+use std::path::Path;
 use std::io::Write;
 use std::process::Command;
 use rayon::prelude::*;
@@ -61,7 +62,9 @@ impl Artist {
 
 impl Song {
     fn scrape_comments(&self) {
-        let path = format!("out/{}/{}/", &self.artist_name, &self.name); 
+        let path = format!("out/{}/{}", &self.artist_name, &self.name); 
+        if Path::new(&format!("{}.txt", &path)).exists() { return; };
+
         create_dir_all(&path).unwrap();
 
         for page in 1.. {
@@ -73,12 +76,12 @@ impl Song {
                 write(format!("{}/out{}.txt", path, page), comments);
             }
         }
-        self.cleanup();
+        self.cleanup(path);
     }
 
-    fn cleanup(&self) {
-        Command::new("./process.hs")
-                .args(&[&self.name])
+    fn cleanup(&self, path: String) { //combine .txt files in dir and delete
+        Command::new("./process.hs") 
+                .args(&[&path, "0"])
                 .spawn()
                 .expect("failed to execute cleanup");
         println!("{} scrape completed", &self.name);

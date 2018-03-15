@@ -27,18 +27,19 @@ struct Artist {
 
 fn main() {
     let mut radiohead = make_artist("radiohead".to_string(), 200);
-    radiohead.scrape_urls();
     radiohead.scrape_songs();
 }
 
 fn make_artist(name: String, url_num: u16) -> Artist {
-    Artist { name, url: format!("https://songmeanings.com/artist/view/songs/{}/", url_num), songs: Vec::new() }
+    Artist { name, 
+             url: format!("https://songmeanings.com/artist/view/songs/{}/", url_num), 
+             songs: Vec::new() }
 }
 
 impl Artist {
-    fn scrape_songs(&self) {
-        &self.songs.par_iter()
-                   .for_each(|s| s.scrape_comments());
+    fn scrape_songs(&mut self) {
+        &self.scrape_urls();
+        &self.songs.par_iter().for_each(|s| s.scrape_comments());
         cleanup(&format!("out/{}", &self.name), "1", &self.name);
     }
 
@@ -55,7 +56,6 @@ impl Artist {
                            name: link.text().replace("/", "_"),
                            url: format!("https:{}", link.attr("href").unwrap())
             };
-//            println!("{:?}", &song);
             self.songs.push(song);
         }
     }

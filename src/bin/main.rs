@@ -52,7 +52,7 @@ impl Artist {
 
         for link in links {
             let song = Song { artist_name: self.name.to_string(),
-                           name: link.text(),
+                           name: link.text().replace("/", "_"),
                            url: format!("https:{}", link.attr("href").unwrap())
             };
 //            println!("{:?}", &song);

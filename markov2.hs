@@ -5,14 +5,18 @@ import qualified Data.HashMap.Strict as Map
 import System.Environment
 import System.Random
 
-type Prefix = String
+type Prefix = (String, String)
 
 type Suffix = String
 
 type Chain = Map.HashMap Prefix [Suffix]
 
 groups :: [String] -> [(Prefix, [Suffix])]
-groups words = map ((: []) <$>) $ zip words (tail words)
+groups words = map (\(x, y, z) -> ((x, y), [z])) thruples
+  where
+    thruples = zip3 words x y
+    x = tail words
+    y = tail x
 
 makeMap :: [String] -> Chain
 makeMap = Map.fromListWith mappend . groups
@@ -30,13 +34,13 @@ seed :: Chain -> IO Prefix
 seed = choose . Map.keys
 
 lookup :: Chain -> Prefix -> String -> IO String
-lookup chain p out = do
+lookup chain p@(_, p2) out = do
   let suffix = choose <$> Map.lookup p chain
   case suffix of
     Nothing -> return out
     Just s -> do
       s <- s
-      Markov.lookup chain s (out ++ " " ++ s)
+      Markov.lookup chain (p2, s) (out ++ " " ++ s)
 
 generate :: [String] -> IO String
 generate source = do
@@ -48,6 +52,5 @@ main :: IO ()
 main = do
   (file:_) <- getArgs
   source <- readFile file
-  let s = words source
-  out <- generate s
+  out <- generate $ words source
   putStrLn $ take 800 out

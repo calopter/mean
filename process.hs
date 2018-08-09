@@ -9,6 +9,7 @@ import System.Environment
 strip :: String -> String
 strip = filter $ not . flip elem ['\t', '\n']
 
+-- for curiosity's sake
 freqs :: String -> [(Int, String)]
 freqs = map (length &&& head) . group . sort . words
 
